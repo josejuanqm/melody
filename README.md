@@ -55,6 +55,8 @@ Web, Windows, and Linux support is planned.
 
 ## Getting Started
 
+> Full walkthrough: [Getting Started Guide](docs/getting-started.md) | [Tutorial: Build a Notes App](docs/tutorial.md)
+
 ### Install the CLI
 
 ```bash
@@ -91,6 +93,8 @@ melody dev --platform ios --device
 Press `r` + Enter to force a reload.
 
 ## Components
+
+> Full reference: [Components Guide](docs/guides/components.md)
 
 23+ built-in components that map to native views on each platform — SwiftUI on Apple, Jetpack Compose on Android:
 
@@ -241,6 +245,8 @@ screens:
 ```
 
 ## State
+
+> Deep dive: [Core Concepts](docs/guides/core-concepts.md)
 
 State is reactive. Assign to `state.key` in Lua and the UI updates automatically. Only the components that reference that key re-render — fine-grained reactivity, no diffing.
 
@@ -421,6 +427,8 @@ Then use it like any other component:
 
 ## Navigation
 
+> Full reference: [Navigation Guide](docs/guides/navigation.md)
+
 Path-based with dynamic route params:
 
 ```yaml
@@ -468,6 +476,8 @@ Each tab gets its own navigation stack. `melody.navigate()` pushes within the cu
 
 ## Theming
 
+> Full reference: [Theming Guide](docs/guides/theming.md)
+
 Define your palette once. Reference it everywhere with `"theme.colorName"`.
 
 ```yaml
@@ -503,6 +513,8 @@ The `dark` and `light` blocks are overrides — they merge on top of the base co
 Theme colors work everywhere: YAML styles (`color: "theme.textPrimary"`), Lua expressions (`theme.primary`), and render functions (`style = { color = theme.success }`).
 
 ## Plugins
+
+> Full reference: [Plugins Guide](docs/guides/plugins.md)
 
 Extend Melody with native plugins. A plugin is a git repo that contains platform-specific source files and a `plugin.yaml` manifest. Plugins register functions that become callable from Lua under their own namespace.
 
