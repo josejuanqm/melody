@@ -1,0 +1,48 @@
+app:
+  name: Test App
+  theme:
+    primary: "#6366f1"
+
+screens:
+  - id: home
+    path: /
+    title: Home
+    state:
+      count: 0
+      name: "World"
+      active: true
+      items: null
+
+    onMount: |
+      state.count = 1
+
+    body:
+      - component: Text
+        text: "{{ 'Hello, ' .. state.name }}"
+        style:
+          fontSize: 24
+          fontWeight: bold
+
+      - component: Button
+        label: "{{ 'Count: ' .. state.count }}"
+        onTap: |
+          state.count = state.count + 1
+
+      - component: Stack
+        direction: horizontal
+        style:
+          spacing: 8
+        children:
+          - component: Text
+            text: "Left"
+          - component: Spacer
+          - component: Text
+            text: "Right"
+
+  - id: about
+    path: /about
+    title: About
+
+    body:
+      - component: Text
+        text: "About page"

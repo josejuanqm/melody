@@ -1,0 +1,4 @@
+module CLua {
+    umbrella header "CLua.h"
+    export *
+}
