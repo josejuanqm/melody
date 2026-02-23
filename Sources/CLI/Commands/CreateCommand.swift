@@ -35,6 +35,24 @@ struct CreateCommand: ParsableCommand {
         app:
           name: \(name)
           id: \(bundleId)
+          lua: |
+            function formatDate(ts, fmt)
+              return os.date(fmt or "%b %d, %Y", ts)
+            end
+            function formatTime(ts, fmt)
+              return os.date(fmt or "%I:%M %p", ts)
+            end
+            function formatDateTime(ts, fmt)
+              return os.date(fmt or "%b %d, %Y %I:%M %p", ts)
+            end
+            function timeAgo(ts)
+              local d = os.time() - ts
+              if d < 60 then return "just now"
+              elseif d < 3600 then return math.floor(d / 60) .. "m ago"
+              elseif d < 86400 then return math.floor(d / 3600) .. "h ago"
+              elseif d < 604800 then return math.floor(d / 86400) .. "d ago"
+              else return os.date("%b %d", ts) end
+            end
           theme:
             primary: "#6366f1"
             secondary: "#a855f7"

@@ -255,6 +255,7 @@ struct AndroidProjectGenerator {
                 <activity
                     android:name=".MainActivity"
                     android:exported="true"
+                    android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density"
                     android:theme="@style/Theme.Melody">
                     <intent-filter>
                         <action android:name="android.intent.action.MAIN" />
