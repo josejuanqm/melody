@@ -60,6 +60,11 @@ Web, Windows, and Linux support is planned.
 ### Install the CLI
 
 ```bash
+brew tap josejuanqm/tap 
+brew install melody
+
+# or
+
 git clone https://github.com/aspect-build/melody.git
 cd melody
 swift build -c release
