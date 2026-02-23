@@ -395,11 +395,18 @@ public final class LuaVM: @unchecked Sendable {
         lua_setglobal(L, "platform")
         lua_pushboolean(L, 1)
         lua_setglobal(L, "isDesktop")
+        #elseif os(tvOS)
+        lua_pushstring(L, "tv")
+        lua_setglobal(L, "platform")
+        lua_pushboolean(L, 0)
+        lua_setglobal(L, "isDesktop")
         #else
         lua_pushstring(L, "ios")
         lua_setglobal(L, "platform")
         let isIPad = UIDevice.current.userInterfaceIdiom == .pad
-        lua_pushboolean(L, isIPad ? 1 : 0)
+        lua_pushstring(L, isIpad ? "pad" : "phone")
+        lua_setglobal(L, "idiom")
+        lua_pushboolean(L, 0)
         lua_setglobal(L, "isDesktop")
         #endif
 

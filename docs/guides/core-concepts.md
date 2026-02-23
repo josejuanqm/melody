@@ -216,7 +216,7 @@ These are available in every script:
 | `scope` | Component-local state (inside `state_provider`) |
 | `theme` | Theme colors as a table |
 | `platform` | `"ios"`, `"macos"`, or `"android"` |
-| `isDesktop` | `true` on macOS and iPad |
+| `isDesktop` | `true` on macOS |
 | `isDebug` | `true` in debug builds |
 | `context.isSheet` | `true` when presented as a sheet |
 | `value` | New text value in `onChanged` handlers |
