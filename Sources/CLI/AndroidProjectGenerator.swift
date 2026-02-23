@@ -3,7 +3,7 @@ import Foundation
 /// Generates a complete Android/Gradle project structure for a Melody project.
 struct AndroidProjectGenerator {
 
-    static func generate(name: String, bundleId: String, projectDir: String, melodyRepoRoot: String) throws {
+    static func generate(name: String, bundleId: String, projectDir: String, melodyVersion: String) throws {
         let fm = FileManager.default
 
         let androidDir = (projectDir as NSString).appendingPathComponent("android")
@@ -43,21 +43,16 @@ struct AndroidProjectGenerator {
             .write(toFile: (gradleLibsDir as NSString).appendingPathComponent("libs.versions.toml"),
                    atomically: true, encoding: .utf8)
 
-        let melodyAndroidDir = (melodyRepoRoot as NSString).appendingPathComponent("Android")
-        let relativeToMelodyAndroid = XcodeProjectGenerator.relativePath(
-            from: androidDir, to: melodyAndroidDir
-        )
-
         try generateRootBuildGradle()
             .write(toFile: (androidDir as NSString).appendingPathComponent("build.gradle.kts"),
                    atomically: true, encoding: .utf8)
-        try generateSettingsGradle(name: name, melodyAndroidRelPath: relativeToMelodyAndroid)
+        try generateSettingsGradle(name: name)
             .write(toFile: (androidDir as NSString).appendingPathComponent("settings.gradle.kts"),
                    atomically: true, encoding: .utf8)
         try generateGradleProperties()
             .write(toFile: (androidDir as NSString).appendingPathComponent("gradle.properties"),
                    atomically: true, encoding: .utf8)
-        try generateAppBuildGradle(bundleId: bundleId)
+        try generateAppBuildGradle(bundleId: bundleId, melodyVersion: melodyVersion)
             .write(toFile: (appDir as NSString).appendingPathComponent("build.gradle.kts"),
                    atomically: true, encoding: .utf8)
         try generateAndroidManifest()
@@ -85,7 +80,7 @@ struct AndroidProjectGenerator {
         """
     }
 
-    private static func generateSettingsGradle(name: String, melodyAndroidRelPath: String) -> String {
+    private static func generateSettingsGradle(name: String) -> String {
         return """
         pluginManagement {
             repositories {
@@ -99,21 +94,12 @@ struct AndroidProjectGenerator {
             repositories {
                 google()
                 mavenCentral()
+                maven { url = uri("https://jitpack.io") }
             }
         }
 
         rootProject.name = "\(name)"
         include(":app")
-
-        // Melody framework modules (local dependency)
-        include(":lua-native")
-        project(":lua-native").projectDir = file("\(melodyAndroidRelPath)/lua-native")
-
-        include(":melody-core")
-        project(":melody-core").projectDir = file("\(melodyAndroidRelPath)/melody-core")
-
-        include(":melody-runtime")
-        project(":melody-runtime").projectDir = file("\(melodyAndroidRelPath)/melody-runtime")
         """
     }
 
@@ -126,7 +112,7 @@ struct AndroidProjectGenerator {
         """
     }
 
-    private static func generateAppBuildGradle(bundleId: String) -> String {
+    private static func generateAppBuildGradle(bundleId: String, melodyVersion: String) -> String {
         return """
         import java.awt.RenderingHints
         import java.awt.image.BufferedImage
@@ -241,7 +227,7 @@ struct AndroidProjectGenerator {
         }
 
         dependencies {
-            implementation(project(":melody-runtime"))
+            implementation("com.github.josejuanqm.melody:melody-runtime:\(melodyVersion)")
 
             implementation(libs.core.ktx)
             implementation(libs.activity.compose)

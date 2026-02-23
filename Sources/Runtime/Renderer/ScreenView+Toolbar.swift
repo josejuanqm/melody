@@ -5,7 +5,7 @@ import Core
 
 @ViewBuilder
 func melodyToolbarComponent(_ item: ComponentDefinition, vm: LuaVM) -> some View {
-    let resolver = ExpressionResolver(vm: vm, props: nil)
+    let resolver = ExpressionResolver(vm: vm, props: nil, state: nil)
     if resolver.visible(item.visible) {
         melodyToolbarComponentContent(item, vm: vm)
     }
@@ -59,7 +59,7 @@ private func melodyToolbarComponentContent(_ item: ComponentDefinition, vm: LuaV
 
 @ViewBuilder
 func melodyToolbarMenuChild(_ child: ComponentDefinition, vm: LuaVM) -> some View {
-    let resolver = ExpressionResolver(vm: vm, props: nil)
+    let resolver = ExpressionResolver(vm: vm, props: nil, state: nil)
     if resolver.visible(child.visible) {
         melodyToolbarMenuChildContent(child, vm: vm)
     }

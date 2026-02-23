@@ -34,7 +34,7 @@ public final class MelodyStore: @unchecked Sendable {
 
     /// Persists to UserDefaults and memory
     public func save(key: String, value: LuaValue) {
-        cache[key] = value
+        cache[prefix + key] = value
         let wrapped: [String: Any] = ["v": MelodyHTTP.luaValueToJSON(value)]
         if let data = try? JSONSerialization.data(withJSONObject: wrapped) {
             defaults.set(data, forKey: prefix + key)

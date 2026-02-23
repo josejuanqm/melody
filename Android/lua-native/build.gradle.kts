@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    `maven-publish`
 }
 
 android {
@@ -40,4 +41,16 @@ android {
 
 dependencies {
     implementation(libs.core.ktx)
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                groupId = "com.github.josejuanqm.melody"
+                artifactId = project.name
+            }
+        }
+    }
 }

@@ -406,7 +406,8 @@ private fun preResolveItems(
     val items = resolveListItems(definition.items, luaVM, componentProps)
     val script = definition.render ?: return emptyList()
     return items.mapIndexed { index, item ->
-        val comps = resolveRenderFunction(item, index, script, luaVM)
+        // Pass a 1-based index since lua handles indices this way
+        val comps = resolveRenderFunction(item, index + 1, script, luaVM)
         val stableId = comps.firstOrNull()?.id ?: "$index"
         RenderedListItem(id = stableId, components = comps)
     }

@@ -388,7 +388,7 @@ struct TabContainerView: View {
         _ platformTabs: [TabDefinition],
         vm: LuaVM?
     ) -> [TabDefinition] {
-        let resolver = ExpressionResolver(vm: vm, props: nil)
+        let resolver = ExpressionResolver(vm: vm, props: nil, state: nil)
         return platformTabs.filter { tab in
             resolver.visible(tab.visible)
         }

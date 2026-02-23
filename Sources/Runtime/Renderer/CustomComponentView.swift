@@ -51,7 +51,7 @@ struct CustomComponentView: View {
         if let instanceProps, let vm = luaVM {
             let prefix: String
             if let parentProps {
-                prefix = vm.propsPrefix(for: parentProps)
+                prefix = vm.localPrefix(key: "props", for: parentProps)
             } else {
                 prefix = ""
             }

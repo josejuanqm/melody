@@ -207,15 +207,15 @@ public final class LuaVM: @unchecked Sendable {
         lua_setglobal(L, name)
     }
 
-    /// Generate a Lua `local props = { ... }` prefix for self-contained evaluation.
+    /// Generate a Lua `local ${X} = { ... }` prefix for self-contained evaluation.
     /// Each call site gets its own local — no global mutation, no race conditions.
-    public func propsPrefix(for props: [String: LuaValue]) -> String {
+    public func localPrefix(key: String, for value: [String: LuaValue]) -> String {
         var parts: [String] = []
-        for (key, value) in props {
+        for (key, value) in value {
             let escapedKey = key.replacingOccurrences(of: "\"", with: "\\\"")
             parts.append("[\"\(escapedKey)\"] = \(luaLiteral(value))")
         }
-        return "local props = {" + parts.joined(separator: ", ") + "}\n"
+        return "local \(key) = {" + parts.joined(separator: ", ") + "}\n"
     }
 
     /// Convert a LuaValue to its Lua source literal representation

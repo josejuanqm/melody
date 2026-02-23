@@ -23,10 +23,18 @@ struct MelodyInput: View {
         inputVariant == .textarea
     }
 
+    private var placeholder: String {
+        if let resolvedLabel, !resolvedLabel.isEmpty {
+            return resolvedLabel
+        }
+
+        return definition.placeholder.resolved ?? ""
+    }
+
     var body: some View {
         Group {
             if isSecure {
-                SecureField(resolvedLabel ?? definition.placeholder.resolved ?? "", text: $text)
+                SecureField(placeholder, text: $text)
             } else if isTextarea {
                 #if os(tvOS)
                 textField
@@ -79,7 +87,7 @@ struct MelodyInput: View {
 #endif
 
     private var textField: some View {
-        let field = TextField(resolvedLabel ?? definition.placeholder.resolved ?? "", text: $text)
+        let field = TextField(placeholder, text: $text)
         #if canImport(UIKit)
         return field
             .keyboardType(keyboardType)

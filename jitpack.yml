@@ -1,0 +1,4 @@
+jdk:
+  - openjdk17
+install:
+  - cd Android && ./gradlew publishToMavenLocal

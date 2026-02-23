@@ -504,9 +504,66 @@ Theme colors work everywhere: YAML styles (`color: "theme.textPrimary"`), Lua ex
 
 ## Plugins
 
-Extend Melody with native plugins on each platform. Plugins register functions that become callable from Lua.
+Extend Melody with native plugins. A plugin is a git repo that contains platform-specific source files and a `plugin.yaml` manifest. Plugins register functions that become callable from Lua under their own namespace.
 
-### Swift (iOS / macOS / tvOS / visionOS)
+### Installing plugins
+
+Declare plugins in your `app.yaml`:
+
+```yaml
+app:
+  name: MyApp
+  plugins:
+    keychain: https://github.com/example/melody-plugin-keychain.git
+    analytics: https://github.com/example/melody-plugin-analytics.git
+```
+
+Then run:
+
+```bash
+melody plugins install
+```
+
+This clones each plugin repo, copies the platform sources into your Xcode and Android projects, and generates the plugin registry automatically. Run it again to pull updates.
+
+### Creating a plugin
+
+A plugin repo needs a `plugin.yaml` manifest at the root:
+
+```yaml
+name: keychain
+version: 1.0.0
+description: Secure keychain/keystore access
+ios:
+  sources:
+    - iOS/KeychainPlugin.swift
+  frameworks:
+    - Security
+android:
+  sources:
+    - android/KeychainPlugin.kt
+lua:
+  - lua/keychain.lua
+```
+
+The `ios.sources` and `android.sources` paths point to native implementations. Optional `lua` files get bundled as a prelude that runs before any screen loads — useful for helper functions.
+
+Plugin repo structure:
+
+```
+melody-plugin-keychain/
+  plugin.yaml
+  iOS/
+    KeychainPlugin.swift
+  android/
+    KeychainPlugin.kt
+  lua/
+    keychain.lua          # optional Lua helpers
+```
+
+### Writing the native code
+
+#### Swift (iOS / macOS / tvOS / visionOS)
 
 ```swift
 import Runtime
@@ -528,7 +585,7 @@ class KeychainPlugin: MelodyPlugin {
 }
 ```
 
-### Kotlin (Android)
+#### Kotlin (Android)
 
 ```kotlin
 class KeychainPlugin : MelodyPlugin {

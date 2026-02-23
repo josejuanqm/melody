@@ -10,3 +10,4 @@ Android/lua_native/build/
 Android/lua_native/.cxx/
 **/build
 **/.*
+*.tar.gz

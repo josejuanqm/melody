@@ -6,19 +6,26 @@ import Core
 struct ExpressionResolver {
     let vm: LuaVM?
     let props: [String: LuaValue]?
+    let state: [String: LuaValue]?
 
     // MARK: - Internal Helpers
 
     /// Returns a `local props = { ... }` Lua snippet, or "" if no props.
     func propsPrefix() -> String {
         guard let vm, let props else { return "" }
-        return vm.propsPrefix(for: props)
+        return vm.localPrefix(key: "props", for: props)
+    }
+
+    /// Returns a `local state = { ... }` Lua snippet, or "" if no props.
+    func statePrefix() -> String {
+        guard let vm, let state else { return "" }
+        return vm.localPrefix(key: "state", for: state)
     }
 
     /// Evaluate a Lua expression with local props injected.
     func evaluate(_ expression: String) throws -> LuaValue {
         guard let vm else { throw LuaError.initializationFailed }
-        let prefix = propsPrefix()
+        let prefix = "\(propsPrefix())\n\(statePrefix())"
         return try vm.execute(prefix + "return " + expression)
     }
 

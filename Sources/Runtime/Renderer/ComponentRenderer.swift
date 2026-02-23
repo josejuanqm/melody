@@ -69,7 +69,12 @@ struct BoundComponentView: View {
     #endif
 
     private var resolver: ExpressionResolver {
-        ExpressionResolver(vm: luaVM, props: componentProps)
+        // To avoid using expressionresolver as main actor, send state as a value
+        ExpressionResolver(
+            vm: luaVM,
+            props: componentProps,
+            state: screenState.allValues
+        )
     }
 
     var body: some View {
@@ -303,11 +308,20 @@ struct BoundComponentView: View {
             )
 
         case .input:
+            let inputValue: String = {
+                if definition.value != nil {
+                    return resolver.string(definition.value)
+                }
+                return ""
+            }()
             MelodyInput(
                 definition: definition,
                 resolvedLabel: resolver.string(definition.label),
-                resolvedValue: resolver.string(definition.value),
+                resolvedValue: inputValue,
                 onChanged: { newValue in
+                    if let key = definition.stateKey {
+                        screenState.set(key: key, value: .string(newValue))
+                    }
                     if let handler = definition.onChanged {
                         luaVM?.setStateRaw(key: "_input_value", value: .string(newValue))
                         executeLua("local value = state._input_value\n\(handler)")
@@ -483,7 +497,8 @@ struct BoundComponentView: View {
         let items = resolver.items(definition.items)
         guard let script = definition.render else { return [] }
         return items.enumerated().map { index, item in
-            let comps = resolveRenderFunction(item: item, index: index, script: script)
+            // Pass a 1-based index since lua handles indices this way
+            let comps = resolveRenderFunction(item: item, index: index + 1, script: script)
             let stableId = comps.first?.id ?? "\(index)"
             return RenderedListItem(id: stableId, components: comps)
         }

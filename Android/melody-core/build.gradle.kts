@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
+    `maven-publish`
 }
 
 android {
@@ -26,4 +27,16 @@ dependencies {
     implementation(libs.core.ktx)
     implementation(libs.serialization.json)
     implementation(libs.kaml)
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                groupId = "com.github.josejuanqm.melody"
+                artifactId = project.name
+            }
+        }
+    }
 }

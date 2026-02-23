@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    `maven-publish`
 }
 
 android {
@@ -60,4 +61,16 @@ dependencies {
 
     // Coroutines
     implementation(libs.coroutines.android)
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
+                groupId = "com.github.josejuanqm.melody"
+                artifactId = project.name
+            }
+        }
+    }
 }
