@@ -6,22 +6,22 @@ struct MelodySection<Content: View>: View {
     let definition: ComponentDefinition
     let resolvedLabel: String
     let resolvedFooter: String
-    let headerContent: [ComponentDefinition]?
-    let footerComponents: [ComponentDefinition]?
+    let headerContent: ComponentHeaderFooterContent?
+    let footerContent: ComponentHeaderFooterContent?
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         Section {
             content()
         } header: {
-            if let headerContent, !headerContent.isEmpty {
+            if case let .component(headerContent) = headerContent, !headerContent.isEmpty {
                 ComponentRenderer(components: headerContent)
             } else if !resolvedLabel.isEmpty {
                 Text(resolvedLabel)
             }
         } footer: {
-            if let footerComponents, !footerComponents.isEmpty {
-                ComponentRenderer(components: footerComponents)
+            if case let .component(footerContent) = footerContent, !footerContent.isEmpty {
+                ComponentRenderer(components: footerContent)
             } else if !resolvedFooter.isEmpty {
                 Text(resolvedFooter)
             }

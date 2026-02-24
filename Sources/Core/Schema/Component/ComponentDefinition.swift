@@ -13,7 +13,6 @@ public struct ComponentDefinition: Codable, Sendable, Equatable, Hashable {
     public var src: Value<String>?
     public var systemImage: Value<String>?
     public var url: Value<String>?
-    public var footer: Value<String>?
     public var placeholder: Value<String>?
     public var transition: Value<String>?
     public var columns: Value<Double>?
@@ -44,8 +43,8 @@ public struct ComponentDefinition: Codable, Sendable, Equatable, Hashable {
     public var pickerStyle: String?
     public var datePickerStyle: String?
     public var displayedComponents: String?
-    public var header: [ComponentDefinition]?
-    public var footerContent: [ComponentDefinition]?
+    public var header: ComponentHeaderFooterContent?
+    public var footer: ComponentHeaderFooterContent?
     public var formStyle: String?
     public var shouldGrowToFitParent: Bool?
     public var contextMenu: [ContextMenuItem]?
@@ -67,7 +66,6 @@ public struct ComponentDefinition: Codable, Sendable, Equatable, Hashable {
         src: Value<String>? = nil,
         systemImage: Value<String>? = nil,
         url: Value<String>? = nil,
-        footer: Value<String>? = nil,
         placeholder: Value<String>? = nil,
         transition: Value<String>? = nil,
         columns: Value<Double>? = nil,
@@ -96,8 +94,8 @@ public struct ComponentDefinition: Codable, Sendable, Equatable, Hashable {
         pickerStyle: String? = nil,
         datePickerStyle: String? = nil,
         displayedComponents: String? = nil,
-        header: [ComponentDefinition]? = nil,
-        footerContent: [ComponentDefinition]? = nil,
+        header: ComponentHeaderFooterContent? = nil,
+        footer: ComponentHeaderFooterContent? = nil,
         formStyle: String? = nil,
         shouldGrowToFitParent: Bool? = nil,
         contextMenu: [ContextMenuItem]? = nil,
@@ -118,7 +116,6 @@ public struct ComponentDefinition: Codable, Sendable, Equatable, Hashable {
         self.src = src
         self.systemImage = systemImage
         self.url = url
-        self.footer = footer
         self.placeholder = placeholder
         self.transition = transition
         self.columns = columns
@@ -148,7 +145,7 @@ public struct ComponentDefinition: Codable, Sendable, Equatable, Hashable {
         self.datePickerStyle = datePickerStyle
         self.displayedComponents = displayedComponents
         self.header = header
-        self.footerContent = footerContent
+        self.footer = footer
         self.formStyle = formStyle
         self.shouldGrowToFitParent = shouldGrowToFitParent
         self.contextMenu = contextMenu
@@ -162,11 +159,11 @@ public struct ComponentDefinition: Codable, Sendable, Equatable, Hashable {
 
     private enum CodingKeys: String, CodingKey {
         case component, id, text, label, visible, disabled, value, src, systemImage, url
-        case footer, placeholder, transition, columns, minColumnWidth, maxColumnWidth
+        case placeholder, transition, columns, minColumnWidth, maxColumnWidth
         case direction, props, items, render, onTap, onChanged, onSubmit, onHover
         case usesSharedObjectTransition, inputType, style, children, bindings, localState, background, stateKey
         case min, max, step, options, pickerStyle, datePickerStyle, displayedComponents
-        case header, footerContent, formStyle, shouldGrowToFitParent, contextMenu
+        case header, footer, formStyle, shouldGrowToFitParent, contextMenu
         case lazy, marks, legendPosition, hideXAxis, hideYAxis, colors
     }
 
@@ -181,7 +178,6 @@ public struct ComponentDefinition: Codable, Sendable, Equatable, Hashable {
         src = try c.decodeIfPresent(Value<String>.self, forKey: .src)
         systemImage = try c.decodeIfPresent(Value<String>.self, forKey: .systemImage)
         url = try c.decodeIfPresent(Value<String>.self, forKey: .url)
-        footer = try c.decodeIfPresent(Value<String>.self, forKey: .footer)
         placeholder = try c.decodeIfPresent(Value<String>.self, forKey: .placeholder)
         transition = try c.decodeIfPresent(Value<String>.self, forKey: .transition)
 
@@ -216,8 +212,8 @@ public struct ComponentDefinition: Codable, Sendable, Equatable, Hashable {
         pickerStyle = try c.decodeIfPresent(String.self, forKey: .pickerStyle)
         datePickerStyle = try c.decodeIfPresent(String.self, forKey: .datePickerStyle)
         displayedComponents = try c.decodeIfPresent(String.self, forKey: .displayedComponents)
-        header = try c.decodeIfPresent([ComponentDefinition].self, forKey: .header)
-        footerContent = try c.decodeIfPresent([ComponentDefinition].self, forKey: .footerContent)
+        header = try c.decodeIfPresent(ComponentHeaderFooterContent.self, forKey: .header)
+        footer = try c.decodeIfPresent(ComponentHeaderFooterContent.self, forKey: .footer)
         formStyle = try c.decodeIfPresent(String.self, forKey: .formStyle)
         shouldGrowToFitParent = try c.decodeIfPresent(Bool.self, forKey: .shouldGrowToFitParent)
         contextMenu = try c.decodeIfPresent([ContextMenuItem].self, forKey: .contextMenu)

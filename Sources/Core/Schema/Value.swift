@@ -166,15 +166,17 @@ extension Value where T == Double {
 
 // MARK: - Convenience for Optional<Value<Double>>
 
-extension Optional where Wrapped == Value<Double> {
+public typealias ValueType = Value
+
+extension Optional where Wrapped == ValueType<Double> {
     public var resolved: Double? { self?.literalValue }
 }
 
-extension Optional where Wrapped == Value<String> {
+extension Optional where Wrapped == ValueType<String> {
     public var resolved: String? { self?.literalValue }
 }
 
-extension Optional where Wrapped == Value<Int> {
+extension Optional where Wrapped == ValueType<Int> {
     public var resolved: Int? { self?.literalValue }
 }
 
