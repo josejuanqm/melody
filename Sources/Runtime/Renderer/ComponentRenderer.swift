@@ -457,12 +457,27 @@ struct BoundComponentView: View {
             }
 
         case .section:
+            let resolvedLabel: String = {
+                if case let .string(content) = definition.header {
+                    return resolver.string(content)
+                }
+
+                return resolver.string(definition.label)
+            }()
+
+            let resolvedFooter: String = {
+                if case let .string(content) = definition.footer {
+                    return resolver.string(content)
+                }
+
+                return resolver.string(definition.label)
+            }()
             MelodySection(
                 definition: definition,
-                resolvedLabel: resolver.string(definition.label),
-                resolvedFooter: resolver.string(definition.footer),
+                resolvedLabel: resolvedLabel,
+                resolvedFooter: resolvedFooter,
                 headerContent: definition.header,
-                footerComponents: definition.footerContent
+                footerContent: definition.footer
             ) {
                 if let children = definition.children {
                     ComponentRenderer(components: children)
@@ -681,7 +696,24 @@ struct BoundComponentView: View {
         def.columns = luaValueToNumericValue(table["columns"])
         def.maxColumnWidth = luaValueToNumericValue(table["maxColumnWidth"])
         def.minColumnWidth = luaValueToNumericValue(table["minColumnWidth"])
-        def.footer = table["footer"]?.stringValue.map { Value<String>.from($0) }
+
+        let extractHeaderFooterContentFromKey: (String) -> ComponentHeaderFooterContent? = { key in
+            if let header = table[key] {
+                if let headerArray = header.arrayValue {
+                    let headerDef = headerArray.compactMap(\LuaValue.tableValue).map(componentFromTable)
+                    return .component(headerDef)
+                } else if let headerString = header.stringValue {
+                    return .string(Value<String>.from(headerString))
+                } else {
+                    assertionFailure("Unexpected table value for 'header'")
+                }
+            }
+
+            return nil
+        }
+        def.header = extractHeaderFooterContentFromKey("header")
+        def.footer = extractHeaderFooterContentFromKey("footer")
+
         def.formStyle = table["formStyle"]?.stringValue
         def.legendPosition = table["legendPosition"]?.stringValue
         def.hideXAxis = table["hideXAxis"]?.boolValue

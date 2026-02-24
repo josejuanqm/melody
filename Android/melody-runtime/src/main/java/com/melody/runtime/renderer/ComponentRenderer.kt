@@ -364,15 +364,42 @@ private fun ComponentBody(
             RenderDynamicItems(definition, luaVM, componentProps)
         }
 
-        "section" -> MelodySection(
-            definition = definition,
-            resolvedLabel = resolver.string(definition.label),
-            resolvedFooter = resolver.string(definition.footer),
-            headerContent = definition.header,
-            footerComponents = definition.footerContent
-        ) {
-            definition.children?.let { ComponentRenderer(components = it) }
-            RenderDynamicItems(definition, luaVM, componentProps)
+        "section" -> {
+            val resolvedLabel = resolver.string(definition.label)
+            val resolvedFooter = resolver.string(definition.footer?.value)
+
+            var headerContent: List<ComponentDefinition>? = null
+            var footerContent: List<ComponentDefinition>? = null
+
+            when (definition.header) {
+                is ComponentHeaderFooterContent.Components -> {
+                    headerContent = (definition.header as ComponentHeaderFooterContent.Components).definitions
+                }
+                else -> {
+                    headerContent = ComponentDefinition(
+                        component = "text",
+                        text = definition.header?.value
+                    ).let { listOf(it) }
+                }
+            }
+
+            when (definition.footer) {
+                is ComponentHeaderFooterContent.Components -> {
+                    footerContent = (definition.header as ComponentHeaderFooterContent.Components).definitions
+                }
+                else -> { /* Handled by MelodySection */ }
+            }
+
+            MelodySection(
+                definition = definition,
+                resolvedLabel = resolvedLabel,
+                resolvedFooter = resolvedFooter,
+                headerContent = headerContent,
+                footerComponents = footerContent
+            ) {
+                definition.children?.let { ComponentRenderer(components = it) }
+                RenderDynamicItems(definition, luaVM, componentProps)
+            }
         }
 
         "chart" -> MelodyChart(
@@ -692,6 +719,20 @@ private fun resolveRenderFunction(item: LuaValue, index: Int, script: String, lu
 }
 
 private fun componentFromTable(table: Map<String, LuaValue>): ComponentDefinition {
+    fun extractHeaderFooterContent(key: String): ComponentHeaderFooterContent? {
+        val v = table[key] ?: return null
+        return when (v) {
+            is LuaValue.StringVal -> ComponentHeaderFooterContent.Text(Value.fromString(v.value))
+            is LuaValue.ArrayVal -> {
+                val components = v.arrayValue?.mapNotNull { it.tableValue?.let { componentFromTable(it) } }
+                if (components != null)
+                    ComponentHeaderFooterContent.Components(components)
+                else null
+            }
+            else -> null
+        }
+    }
+
     val def = ComponentDefinition(
         component = table["component"]?.stringValue ?: "text",
         id = table["id"]?.stringValue,
@@ -722,6 +763,8 @@ private fun componentFromTable(table: Map<String, LuaValue>): ComponentDefinitio
         max = table["max"]?.numberValue,
         step = table["step"]?.numberValue,
         url = table["url"]?.stringValue?.let { Value.fromString(it) },
+        header = extractHeaderFooterContent("header"),
+        footer = extractHeaderFooterContent("footer"),
         pickerStyle = table["pickerStyle"]?.stringValue,
         columns = table["columns"]?.let { v ->
             v.numberValue?.let { Value.Literal(it) }
@@ -735,7 +778,6 @@ private fun componentFromTable(table: Map<String, LuaValue>): ComponentDefinitio
             v.numberValue?.let { Value.Literal(it) }
                 ?: v.stringValue?.let { Value.fromDouble(it) }
         },
-        footer = table["footer"]?.stringValue?.let { Value.fromString(it) },
         formStyle = table["formStyle"]?.stringValue,
         shouldGrowToFitParent = table["shouldGrowToFitParent"]?.boolValue,
         transition = table["transition"]?.stringValue?.let { Value.fromString(it) },

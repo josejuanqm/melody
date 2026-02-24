@@ -61,8 +61,10 @@ data class ComponentDefinition(
     val systemImage: Value<String>? = null,
     @Serializable(with = ValueStringSerializer::class)
     val url: Value<String>? = null,
-    @Serializable(with = ValueStringSerializer::class)
-    val footer: Value<String>? = null,
+    @Serializable(with = ComponentHeaderFooterContentSerializer::class)
+    val header: ComponentHeaderFooterContent? = null,
+    @Serializable(with = ComponentHeaderFooterContentSerializer::class)
+    val footer: ComponentHeaderFooterContent? = null,
     @Serializable(with = ValueStringSerializer::class)
     val placeholder: Value<String>? = null,
     @Serializable(with = ValueStringSerializer::class)
@@ -101,8 +103,6 @@ data class ComponentDefinition(
     val pickerStyle: String? = null,
     val datePickerStyle: String? = null,
     val displayedComponents: String? = null,
-    val header: List<ComponentDefinition>? = null,
-    val footerContent: List<ComponentDefinition>? = null,
     val formStyle: String? = null,
     val shouldGrowToFitParent: Boolean? = null,
     val contextMenu: List<ContextMenuItem>? = null,

@@ -25,6 +25,7 @@ enum BindingExtractor {
             definition.value?.expressionValue,
             definition.disabled?.expressionValue,
             definition.url?.expressionValue,
+            definition.header?.expressionValue,
             definition.footer?.expressionValue,
             definition.placeholder?.expressionValue,
             definition.transition?.expressionValue,

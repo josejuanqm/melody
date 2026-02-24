@@ -44,6 +44,11 @@ public enum LuaValue: Sendable {
         return nil
     }
 
+    public var arrayValue: [LuaValue]? {
+        if case .array(let t) = self { return t }
+        return nil
+    }
+
 }
 
 /// Errors produced by Lua script loading, execution, or VM initialization.
