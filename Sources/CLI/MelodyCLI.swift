@@ -6,7 +6,7 @@ struct MelodyCLI: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "melody",
         abstract: "Melody — Declarative mobile app framework",
-        version: "0.1.0",
+        version: "0.2.0",
         subcommands: [
             CreateCommand.self,
             ValidateCommand.self,
