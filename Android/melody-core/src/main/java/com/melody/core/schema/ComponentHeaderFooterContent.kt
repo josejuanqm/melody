@@ -19,7 +19,7 @@ import kotlinx.serialization.encoding.Encoder
  */
 @Serializable(with = ComponentHeaderFooterContentSerializer::class)
 sealed class ComponentHeaderFooterContent {
-    data class Text(val value: Value<String>?) : ComponentHeaderFooterContent()
+    data class Text(val stringValue: Value<String>?) : ComponentHeaderFooterContent()
     data class Components(val definitions: List<ComponentDefinition>) : ComponentHeaderFooterContent()
 
     val textValue: String?
@@ -29,7 +29,7 @@ sealed class ComponentHeaderFooterContent {
         get() = (this as? Text)?.value?.literalValue
 
     val value: Value<String>?
-        get() = (this as? Text)?.value
+        get() = (this as? Text)?.stringValue
 
     val componentDefinitions: List<ComponentDefinition>?
         get() = (this as? Components)?.definitions
