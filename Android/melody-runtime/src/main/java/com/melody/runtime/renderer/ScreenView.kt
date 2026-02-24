@@ -268,11 +268,10 @@ fun ScreenView(
             ModalBottomSheet(
                 onDismissRequest = { presentation.sheet.value = null },
                 sheetState = sheetState,
-                modifier = Modifier.padding(
-                    top = 100.dp,
-                    bottom = WindowInsets.ime.getBottom(
-                        LocalDensity.current
-                    ).dp
+                modifier = Modifier.padding(top = 100.dp).then(
+                    with(LocalDensity.current) {
+                        Modifier.padding(bottom = WindowInsets.ime.getBottom(this).toDp())
+                    }
                 )
             ) {
                 CompositionLocalProvider(
