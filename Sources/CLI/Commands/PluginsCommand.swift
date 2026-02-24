@@ -37,20 +37,35 @@ struct PluginsCommand: ParsableCommand {
             var manifests: [PluginManifest] = []
             var luaPreludes: [String] = []
 
-            for (name, url) in plugins {
-                print("Installing plugin '\(name)' from \(url)...")
+            for (name, source) in plugins {
+                let pluginDir: String
 
-                let pluginDir = (pluginsDir as NSString).appendingPathComponent(name)
+                if isLocalPath(source) {
+                    let resolved = source.hasPrefix("/")
+                        ? source
+                        : (projectDir as NSString).appendingPathComponent(source)
+                    let expanded = NSString(string: resolved).standardizingPath
 
-                if FileManager.default.fileExists(atPath: pluginDir) {
-                    let pullResult = shell("git", "-C", pluginDir, "pull", "--ff-only")
-                    if pullResult != 0 {
-                        print("  Warning: git pull failed for \(name), using existing checkout")
+                    guard FileManager.default.fileExists(atPath: expanded) else {
+                        throw PluginError.localPathNotFound(name: name, path: source)
                     }
+
+                    print("Installing plugin '\(name)' from local path \(source)...")
+                    pluginDir = expanded
                 } else {
-                    let cloneResult = shell("git", "clone", "--depth", "1", url, pluginDir)
-                    if cloneResult != 0 {
-                        throw PluginError.cloneFailed(name: name, url: url)
+                    print("Installing plugin '\(name)' from \(source)...")
+                    pluginDir = (pluginsDir as NSString).appendingPathComponent(name)
+
+                    if FileManager.default.fileExists(atPath: pluginDir) {
+                        let pullResult = shell("git", "-C", pluginDir, "pull", "--ff-only")
+                        if pullResult != 0 {
+                            print("  Warning: git pull failed for \(name), using existing checkout")
+                        }
+                    } else {
+                        let cloneResult = shell("git", "clone", "--depth", "1", source, pluginDir)
+                        if cloneResult != 0 {
+                            throw PluginError.cloneFailed(name: name, url: source)
+                        }
                     }
                 }
 
@@ -165,6 +180,10 @@ struct PluginsCommand: ParsableCommand {
             return parts.joined() + "Plugin"
         }
 
+        private func isLocalPath(_ value: String) -> Bool {
+            value.hasPrefix("/") || value.hasPrefix("./") || value.hasPrefix("../") || value.hasPrefix("~")
+        }
+
         private func resolveProjectDir(_ path: String) -> String {
             let resolved = path.hasPrefix("/") ? path : (FileManager.default.currentDirectoryPath as NSString).appendingPathComponent(path)
             if AppParser.isDirectory(resolved) {
@@ -188,6 +207,7 @@ struct PluginsCommand: ParsableCommand {
 private enum PluginError: Error, LocalizedError {
     case cloneFailed(name: String, url: String)
     case missingManifest(name: String)
+    case localPathNotFound(name: String, path: String)
 
     var errorDescription: String? {
         switch self {
@@ -195,6 +215,8 @@ private enum PluginError: Error, LocalizedError {
             return "Failed to clone plugin '\(name)' from \(url)"
         case .missingManifest(let name):
             return "Plugin '\(name)' is missing plugin.yaml manifest"
+        case .localPathNotFound(let name, let path):
+            return "Local path '\(path)' for plugin '\(name)' does not exist"
         }
     }
 }

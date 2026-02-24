@@ -22,6 +22,20 @@ melody plugins install
 
 This clones each repo, copies the native sources into your project, and generates the plugin registry. Run it again to pull updates.
 
+### Local plugins
+
+For mono-repos or local development, you can point to a local directory instead of a git URL:
+
+```yaml
+app:
+  name: MyApp
+  plugins:
+    my-plugin: ./plugins/my-plugin
+    shared: ../shared-plugins/analytics
+```
+
+Paths starting with `./`, `../`, `/`, or `~` are resolved relative to the project directory. The directory must contain a `plugin.yaml` manifest just like a git-based plugin. No cloning occurs — files are read directly from the local path.
+
 After installing, the plugin's functions are available in Lua under their namespace:
 
 ```lua
