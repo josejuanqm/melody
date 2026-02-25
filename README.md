@@ -64,7 +64,7 @@ brew install josejuanqm/tap/melody
 
 # or
 
-git clone https://github.com/aspect-build/melody.git
+git clone https://github.com/josejuanqm/melody.git
 cd melody
 swift build -c release
 cp .build/release/melody /usr/local/bin/
