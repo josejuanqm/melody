@@ -122,6 +122,7 @@ struct AndroidProjectGenerator {
             alias(libs.plugins.android.application)
             alias(libs.plugins.kotlin.android)
             alias(libs.plugins.kotlin.compose)
+            id("com.melody.widgets")
         }
 
         // Parse app manifest from app.yaml
@@ -146,6 +147,11 @@ struct AndroidProjectGenerator {
                 exclude("android/**")
             }
             into(melodyAssetsDir)
+        }
+        
+        melody {
+            widgetDir.set(rootProject.layout.projectDirectory.dir("../widgets"))
+            packageName.set(appId)
         }
 
         android {

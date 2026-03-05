@@ -64,6 +64,11 @@ extension ScreenView {
                         screenState.update(key: key, value: vm.getState(key: key))
                     }
                 }
+                // Search bar resets on reappear; clear stale query to match
+                if let searchConfig = definition.search {
+                    vm.setState(key: searchConfig.stateKey, value: .string(""))
+                    screenState.update(key: searchConfig.stateKey, value: .string(""))
+                }
             }
 
             if let searchConfig = definition.search,

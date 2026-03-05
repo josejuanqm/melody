@@ -175,6 +175,7 @@ class AppParser {
                 .filter { !it.name.startsWith(".") }
                 .filter { it.extension == "yaml" || it.extension == "yml" }
                 .filter { !it.name.endsWith(".component.yaml") }
+                .filter { !it.name.endsWith(".widget.yaml") }
                 .forEach { results.add(it.absolutePath) }
             return results.sorted()
         }

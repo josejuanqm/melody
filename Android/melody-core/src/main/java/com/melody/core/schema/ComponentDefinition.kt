@@ -56,6 +56,8 @@ data class ComponentDefinition(
     @Serializable(with = ValueStringSerializer::class)
     val value: Value<String>? = null,
     @Serializable(with = ValueStringSerializer::class)
+    val link: Value<String>? = null,
+    @Serializable(with = ValueStringSerializer::class)
     val src: Value<String>? = null,
     @Serializable(with = ValueStringSerializer::class)
     val systemImage: Value<String>? = null,

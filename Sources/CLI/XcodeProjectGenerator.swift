@@ -1,12 +1,19 @@
 import Foundation
+import Core
 
 /// Generates a complete `.xcodeproj` and supporting files for a Melody project.
 struct XcodeProjectGenerator {
 
-    static func generate(name: String, bundleId: String, projectDir: String, melodyVersion: String)
-        throws
-    {
+    static func generate(
+        name: String,
+        bundleId: String,
+        projectDir: String,
+        melodyVersion: String,
+        widgets: [String: WidgetDefinition]? = nil,
+        widgetYAMLContents: [String: String]? = nil
+    ) throws {
         let fm = FileManager.default
+        let hasWidgets = !(widgets ?? [:]).isEmpty
 
         let xcodeprojDir = (projectDir as NSString).appendingPathComponent("\(name).xcodeproj")
         let assetsDir = (projectDir as NSString).appendingPathComponent(
@@ -14,11 +21,11 @@ struct XcodeProjectGenerator {
         try fm.createDirectory(atPath: xcodeprojDir, withIntermediateDirectories: true)
         try fm.createDirectory(atPath: assetsDir, withIntermediateDirectories: true)
 
-        try generatePbxproj(name: name, melodyVersion: melodyVersion)
+        try generatePbxproj(name: name, melodyVersion: melodyVersion, widgets: widgets)
             .write(
                 toFile: (xcodeprojDir as NSString).appendingPathComponent("project.pbxproj"),
                 atomically: true, encoding: .utf8)
-        try generateAppSwift(name: name)
+        try generateAppSwift(name: name, bundleId: bundleId, hasWidgets: hasWidgets)
             .write(
                 toFile: (projectDir as NSString).appendingPathComponent("App.swift"),
                 atomically: true, encoding: .utf8)
@@ -38,11 +45,175 @@ struct XcodeProjectGenerator {
             .write(
                 toFile: (assetsDir as NSString).appendingPathComponent("Contents.json"),
                 atomically: true, encoding: .utf8)
+
+        if hasWidgets {
+            let widgetExtDir = (projectDir as NSString).appendingPathComponent("\(name)Widgets")
+            try fm.createDirectory(atPath: widgetExtDir, withIntermediateDirectories: true)
+
+            try generateWidgetBundleSwift(name: name, widgets: widgets!)
+                .write(
+                    toFile: (widgetExtDir as NSString).appendingPathComponent("WidgetBundle.swift"),
+                    atomically: true, encoding: .utf8)
+
+            for (_, widget) in widgets! {
+                let widgetName = widgetSwiftName(widget.id)
+                let yamlContent = widgetYAMLContents?[widget.id]
+                try generateWidgetSwift(name: name, bundleId: bundleId, widget: widget, yamlContent: yamlContent)
+                    .write(
+                        toFile: (widgetExtDir as NSString).appendingPathComponent("\(widgetName)Widget.swift"),
+                        atomically: true, encoding: .utf8)
+            }
+
+            try generateEntitlements(bundleId: bundleId)
+                .write(
+                    toFile: (projectDir as NSString).appendingPathComponent("\(name).entitlements"),
+                    atomically: true, encoding: .utf8)
+            try generateEntitlements(bundleId: bundleId)
+                .write(
+                    toFile: (widgetExtDir as NSString).appendingPathComponent("\(name)Widgets.entitlements"),
+                    atomically: true, encoding: .utf8)
+            try generateWidgetInfoPlist()
+                .write(
+                    toFile: (widgetExtDir as NSString).appendingPathComponent("Info.plist"),
+                    atomically: true, encoding: .utf8)
+        }
+    }
+
+    // MARK: - Widget file generators
+
+    private static func widgetSwiftName(_ id: String) -> String {
+        id.split(separator: "_").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined()
+            .split(separator: "-").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined()
+    }
+
+    private static func generateWidgetBundleSwift(name: String, widgets: [String: WidgetDefinition]) -> String {
+        let widgetEntries = widgets.keys.sorted().map { widgetSwiftName($0) + "Widget()" }.joined(separator: "\n        ")
+        return """
+            import WidgetKit
+            import SwiftUI
+
+            @main
+            struct \(name)WidgetBundle: WidgetBundle {
+                var body: some Widget {
+                    \(widgetEntries)
+                }
+            }
+            """
+    }
+
+    private static func generateWidgetSwift(name: String, bundleId: String, widget: WidgetDefinition, yamlContent: String? = nil) -> String {
+        let swiftName = widgetSwiftName(widget.id)
+        let families = widget.families.map { family -> String in
+            switch family {
+            case .small: return ".systemSmall"
+            case .medium: return ".systemMedium"
+            case .large: return ".systemLarge"
+            }
+        }
+        let familiesStr = families.isEmpty ? ".systemSmall, .systemMedium" : families.joined(separator: ", ")
+        let widgetDescription = widget.description ?? widget.name ?? widget.id
+
+        let embeddedYAML: String
+        if let yamlContent {
+            embeddedYAML = yamlContent.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"\"\"", with: "\\\"\\\"\\\"")
+        } else {
+            embeddedYAML = "WIDGET_YAML_CONTENT"
+        }
+
+        let hasConfigure = widget.configure != nil
+        let imports = hasConfigure
+            ? "import WidgetKit\n    import SwiftUI\n    import AppIntents\n    import Widgets\n    import Core"
+            : "import WidgetKit\n    import SwiftUI\n    import Widgets\n    import Core"
+
+        let suiteName = "group.\(bundleId)"
+
+        if hasConfigure {
+            // Parameter-based: generate a placeholder that references the generated intent.
+            // Full generation is handled by GenerateWidgetsCommand; XcodeProjectGenerator
+            // provides a minimal version for project scaffolding.
+            return """
+                \(imports)
+
+                struct \(swiftName)Widget: Widget {
+                    let kind: String = "\(widget.id)"
+                    static let appLuaPrelude: String? = nil
+
+                    private let widgetYAML = \"\"\"
+                \(embeddedYAML)
+                \"\"\"
+
+                    var body: some WidgetConfiguration {
+                        StaticConfiguration(kind: kind, provider: MelodyTimelineProvider(widgetYAML: widgetYAML, suiteName: "\(suiteName)")) { entry in
+                            MelodyWidgetView(entry: entry)
+                        }
+                        .configurationDisplayName("\(widget.name ?? widget.id)")
+                        .description("\(widgetDescription)")
+                        .supportedFamilies([\(familiesStr)])
+                    }
+                }
+                """
+        }
+
+        return """
+            \(imports)
+
+            struct \(swiftName)Widget: Widget {
+                let kind: String = "\(widget.id)"
+
+                private let widgetYAML = \"\"\"
+            \(embeddedYAML)
+            \"\"\"
+
+                var body: some WidgetConfiguration {
+                    StaticConfiguration(kind: kind, provider: MelodyTimelineProvider(widgetYAML: widgetYAML, suiteName: "\(suiteName)")) { entry in
+                        MelodyWidgetView(entry: entry)
+                    }
+                    .configurationDisplayName("\(widget.name ?? widget.id)")
+                    .description("\(widgetDescription)")
+                    .supportedFamilies([\(familiesStr)])
+                }
+            }
+            """
+    }
+
+    private static func generateEntitlements(bundleId: String) -> String {
+        return """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+            \t<key>com.apple.security.application-groups</key>
+            \t<array>
+            \t\t<string>group.\(bundleId)</string>
+            \t</array>
+            </dict>
+            </plist>
+            """
+    }
+
+    private static func generateWidgetInfoPlist() -> String {
+        return """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+            \t<key>NSExtension</key>
+            \t<dict>
+            \t\t<key>NSExtensionPointIdentifier</key>
+            \t\t<string>com.apple.widgetkit-extension</string>
+            \t</dict>
+            </dict>
+            </plist>
+            """
     }
 
     // MARK: - Templates
 
-    private static func generateAppSwift(name: String) -> String {
+    private static func generateAppSwift(name: String, bundleId: String = "", hasWidgets: Bool = false) -> String {
+        let storeInit = hasWidgets
+            ? "MelodyStore(suiteName: \"group.\(bundleId)\")"
+            : "MelodyStore()"
         return """
             import SwiftUI
             #if canImport(AppKit)
@@ -70,9 +241,9 @@ struct XcodeProjectGenerator {
                         Group {
                             if let app = appDefinition {
                                 #if MELODY_DEV
-                                MelodyAppView(appDefinition: app, plugins: melodyPlugins, assetBaseURL: "http://\\(melodyDevHost):\\(melodyDevAssetPort)")
+                                MelodyAppView(appDefinition: app, plugins: melodyPlugins, assetBaseURL: "http://\\(melodyDevHost):\\(melodyDevAssetPort)", store: \(storeInit))
                                 #else
-                                MelodyAppView(appDefinition: app, plugins: melodyPlugins)
+                                MelodyAppView(appDefinition: app, plugins: melodyPlugins, store: \(storeInit))
                                 #endif
                             } else if let error = error {
                                 errorView(error)
@@ -299,8 +470,298 @@ struct XcodeProjectGenerator {
         cp "${DERIVED_FILE_DIR}/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
         """
 
-    private static func generatePbxproj(name: String, melodyVersion: String) -> String {
+    private static let generateWidgetsScript = """
+        if ! command -v melody &> /dev/null; then
+          echo "warning: melody CLI not found in PATH, skipping widget generation"
+          exit 0
+        fi
+
+        melody generate-widgets -f "${SRCROOT}" -o "${SRCROOT}/${TARGET_NAME}"
+        """
+
+    private static func generatePbxproj(name: String, melodyVersion: String, widgets: [String: WidgetDefinition]? = nil) -> String {
         let shellScript = pbxprojEscape(macOSIconScript)
+        let hasWidgets = !(widgets ?? [:]).isEmpty
+        let sortedWidgetIds = (widgets ?? [:]).keys.sorted()
+
+        var widgetBuildFiles = ""
+        var widgetFileRefs = ""
+        var widgetSourceFiles = ""
+        var widgetGroupChildren = ""
+        var widgetPackageDeps = ""
+
+        if hasWidgets {
+            widgetBuildFiles = """
+
+            \t\tC1000001 /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2000001 /* WidgetBundle.swift */; };
+            \t\tC1000002 /* Widgets in Frameworks */ = {isa = PBXBuildFile; productRef = C4000001 /* Widgets */; };
+            \t\tC1000003 /* Core in Frameworks */ = {isa = PBXBuildFile; productRef = C4000002 /* Core */; };
+            """
+            widgetFileRefs = """
+
+            \t\tC2000001 /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = \"<group>\"; };
+            \t\tC2000002 /* \(name)Widgets.appex */ = {isa = PBXFileReference; explicitFileType = \"wrapper.app-extension\"; includeInIndex = 0; path = \"\(name)Widgets.appex\"; sourceTree = BUILT_PRODUCTS_DIR; };
+            \t\tC2000003 /* \(name).entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = \"\(name).entitlements\"; sourceTree = \"<group>\"; };
+            \t\tC2000004 /* \(name)Widgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = \"\(name)Widgets.entitlements\"; sourceTree = \"<group>\"; };
+            """
+            widgetSourceFiles = "\t\t\t\tC1000001 /* WidgetBundle.swift in Sources */,\n"
+            widgetGroupChildren = "\t\t\t\tC2000001 /* WidgetBundle.swift */,\n"
+
+            for (index, widgetId) in sortedWidgetIds.enumerated() {
+                let swiftName = widgetSwiftName(widgetId)
+                let fileIdx = String(format: "%04d", index + 5)
+                let buildIdx = String(format: "%04d", index + 4)
+                widgetBuildFiles += "\t\tC1\(buildIdx) /* \(swiftName)Widget.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2\(fileIdx) /* \(swiftName)Widget.swift */; };\n"
+                widgetFileRefs += "\t\tC2\(fileIdx) /* \(swiftName)Widget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = \"\(swiftName)Widget.swift\"; sourceTree = \"<group>\"; };\n"
+                widgetSourceFiles += "\t\t\t\tC1\(buildIdx) /* \(swiftName)Widget.swift in Sources */,\n"
+                widgetGroupChildren += "\t\t\t\tC2\(fileIdx) /* \(swiftName)Widget.swift */,\n"
+            }
+
+            widgetPackageDeps = """
+            \t\tC4000001 /* Widgets */ = {
+            \t\t\tisa = XCSwiftPackageProductDependency;
+            \t\t\tpackage = B4100001 /* XCRemoteSwiftPackageReference "melody" */;
+            \t\t\tproductName = Widgets;
+            \t\t};
+            \t\tC4000002 /* Core */ = {
+            \t\t\tisa = XCSwiftPackageProductDependency;
+            \t\t\tpackage = B4100001 /* XCRemoteSwiftPackageReference "melody" */;
+            \t\t\tproductName = Core;
+            \t\t};
+            """
+        }
+
+        let mainAppDeps = hasWidgets ? "\t\t\t\tC9000001 /* PBXTargetDependency */," : ""
+        let mainAppBuildPhases = hasWidgets ? "\t\t\t\tC3000001 /* Embed App Extensions */," : ""
+        let mainGroupEntitlements = hasWidgets ? "\t\t\t\tC2000003 /* \(name).entitlements */," : ""
+        let mainGroupWidgetDir = hasWidgets ? "\t\t\t\tC5000001 /* \(name)Widgets */," : ""
+        let productsWidgetAppex = hasWidgets ? "\t\t\t\tC2000002 /* \(name)Widgets.appex */," : ""
+        let targetsList = hasWidgets ? "\t\t\t\tB6000001 /* \(name) */,\n\t\t\t\tC6000001 /* \(name)Widgets */," : "\t\t\t\tB6000001 /* \(name) */,"
+        let targetAttributes = hasWidgets ? """
+        \t\t\t\t\tB6000001 = {
+        \t\t\t\t\t\tCreatedOnToolsVersion = 15.4;
+        \t\t\t\t\t};
+        \t\t\t\t\tC6000001 = {
+        \t\t\t\t\t\tCreatedOnToolsVersion = 15.4;
+        \t\t\t\t\t};
+        """ : """
+        \t\t\t\t\tB6000001 = {
+        \t\t\t\t\t\tCreatedOnToolsVersion = 15.4;
+        \t\t\t\t\t};
+        """
+        let mainEntitlementSetting = hasWidgets ? "\t\t\t\tCODE_SIGN_ENTITLEMENTS = \"\(name).entitlements\";" : ""
+
+        var widgetSections = ""
+        if hasWidgets {
+            widgetSections = """
+
+            /* Begin PBXContainerItemProxy section */
+            \t\tC9000002 /* PBXContainerItemProxy */ = {
+            \t\t\tisa = PBXContainerItemProxy;
+            \t\t\tcontainerPortal = B9000001 /* Project object */;
+            \t\t\tproxyType = 1;
+            \t\t\tremoteGlobalIDString = C6000001;
+            \t\t\tremoteInfo = \"\(name)Widgets\";
+            \t\t};
+            /* End PBXContainerItemProxy section */
+
+            /* Begin PBXCopyFilesBuildPhase section */
+            \t\tC3000001 /* Embed App Extensions */ = {
+            \t\t\tisa = PBXCopyFilesBuildPhase;
+            \t\t\tbuildActionMask = 2147483647;
+            \t\t\tdstPath = \"\";
+            \t\t\tdstSubfolderSpec = 13;
+            \t\t\tfiles = (
+            \t\t\t\tC1000010 /* \(name)Widgets.appex in Embed App Extensions */,
+            \t\t\t);
+            \t\t\tname = \"Embed App Extensions\";
+            \t\t\trunOnlyForDeploymentPostprocessing = 0;
+            \t\t};
+            /* End PBXCopyFilesBuildPhase section */
+
+            /* Begin PBXTargetDependency section */
+            \t\tC9000001 /* PBXTargetDependency */ = {
+            \t\t\tisa = PBXTargetDependency;
+            \t\t\ttarget = C6000001 /* \(name)Widgets */;
+            \t\t\ttargetProxy = C9000002 /* PBXContainerItemProxy */;
+            \t\t};
+            /* End PBXTargetDependency section */
+            """
+        }
+
+        var widgetNativeTarget = ""
+        var widgetFrameworksPhase = ""
+        var widgetSourcesPhase = ""
+        var widgetResourcesPhase = ""
+        var widgetGenerateScriptPhase = ""
+        var widgetBuildConfigs = ""
+        var widgetConfigList = ""
+        var widgetGroup = ""
+        var widgetBuildFileEmbed = ""
+
+        if hasWidgets {
+            widgetBuildFileEmbed = "\t\tC1000010 /* \(name)Widgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C2000002 /* \(name)Widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };\n"
+
+            widgetFrameworksPhase = """
+            \t\tC3000002 /* Frameworks */ = {
+            \t\t\tisa = PBXFrameworksBuildPhase;
+            \t\t\tbuildActionMask = 2147483647;
+            \t\t\tfiles = (
+            \t\t\t\tC1000002 /* Widgets in Frameworks */,
+            \t\t\t\tC1000003 /* Core in Frameworks */,
+            \t\t\t);
+            \t\t\trunOnlyForDeploymentPostprocessing = 0;
+            \t\t};
+            """
+
+            widgetSourcesPhase = """
+            \t\tC7000001 /* Sources */ = {
+            \t\t\tisa = PBXSourcesBuildPhase;
+            \t\t\tbuildActionMask = 2147483647;
+            \t\t\tfiles = (
+            \(widgetSourceFiles)\t\t\t);
+            \t\t\trunOnlyForDeploymentPostprocessing = 0;
+            \t\t};
+            """
+
+            widgetResourcesPhase = """
+            \t\tC3000003 /* Resources */ = {
+            \t\t\tisa = PBXResourcesBuildPhase;
+            \t\t\tbuildActionMask = 2147483647;
+            \t\t\tfiles = (
+            \t\t\t);
+            \t\t\trunOnlyForDeploymentPostprocessing = 0;
+            \t\t};
+            """
+
+            let widgetScript = pbxprojEscape(generateWidgetsScript)
+            widgetGenerateScriptPhase = """
+            \t\tC7000002 /* Generate Widgets */ = {
+            \t\t\tisa = PBXShellScriptBuildPhase;
+            \t\t\tbuildActionMask = 2147483647;
+            \t\t\tfiles = (
+            \t\t\t);
+            \t\t\tinputPaths = (
+            \t\t\t\t\"$(SRCROOT)/widgets/\",
+            \t\t\t);
+            \t\t\tname = \"Generate Widgets\";
+            \t\t\toutputPaths = (
+            \t\t\t\t\"$(SRCROOT)/\(name)Widgets/WidgetBundle.swift\",
+            \t\t\t);
+            \t\t\trunOnlyForDeploymentPostprocessing = 0;
+            \t\t\tshellPath = /bin/sh;
+            \t\t\tshellScript = \"\(widgetScript)\";
+            \t\t};
+            """
+
+            widgetNativeTarget = """
+            \t\tC6000001 /* \(name)Widgets */ = {
+            \t\t\tisa = PBXNativeTarget;
+            \t\t\tbuildConfigurationList = C8000003 /* Build configuration list for PBXNativeTarget \"\(name)Widgets\" */;
+            \t\t\tbuildPhases = (
+            \t\t\t\tC7000002 /* Generate Widgets */,
+            \t\t\t\tC7000001 /* Sources */,
+            \t\t\t\tC3000002 /* Frameworks */,
+            \t\t\t\tC3000003 /* Resources */,
+            \t\t\t);
+            \t\t\tbuildRules = (
+            \t\t\t);
+            \t\t\tdependencies = (
+            \t\t\t);
+            \t\t\tname = \"\(name)Widgets\";
+            \t\t\tpackageProductDependencies = (
+            \t\t\t\tC4000001 /* Widgets */,
+            \t\t\t\tC4000002 /* Core */,
+            \t\t\t);
+            \t\t\tproductName = \"\(name)Widgets\";
+            \t\t\tproductReference = C2000002 /* \(name)Widgets.appex */;
+            \t\t\tproductType = \"com.apple.product-type.app-extension\";
+            \t\t};
+            """
+
+            widgetGroup = """
+            \t\tC5000001 /* \(name)Widgets */ = {
+            \t\t\tisa = PBXGroup;
+            \t\t\tchildren = (
+            \t\t\t\tC2000004 /* \(name)Widgets.entitlements */,
+            \(widgetGroupChildren)\t\t\t);
+            \t\t\tpath = \"\(name)Widgets\";
+            \t\t\tsourceTree = \"<group>\";
+            \t\t};
+            """
+
+            widgetBuildConfigs = """
+            \t\tC8000021 /* Debug */ = {
+            \t\t\tisa = XCBuildConfiguration;
+            \t\t\tbaseConfigurationReference = B2000005 /* Manifest.xcconfig */;
+            \t\t\tbuildSettings = {
+            \t\t\t\tCODE_SIGN_ENTITLEMENTS = \"\(name)Widgets/\(name)Widgets.entitlements\";
+            \t\t\t\tCODE_SIGN_STYLE = Automatic;
+            \t\t\t\tCURRENT_PROJECT_VERSION = 1;
+            \t\t\t\tGENERATE_INFOPLIST_FILE = YES;
+            \t\t\t\tINFOPLIST_FILE = \"\(name)Widgets/Info.plist\";
+            \t\t\t\tINFOPLIST_KEY_CFBundleDisplayName = \"\(name) Widgets\";
+            \t\t\t\tINFOPLIST_KEY_NSHumanReadableCopyright = \"\";
+            \t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 17.0;
+            \t\t\t\tLD_RUNPATH_SEARCH_PATHS = (
+            \t\t\t\t\t\"$(inherited)\",
+            \t\t\t\t\t\"@executable_path/Frameworks\",
+            \t\t\t\t\t\"@executable_path/../../Frameworks\",
+            \t\t\t\t);
+            \t\t\t\tMARKETING_VERSION = 1.0;
+            \t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = \"$(MELODY_BUNDLE_ID).widgets\";
+            \t\t\t\tPRODUCT_NAME = \"$(TARGET_NAME)\";
+            \t\t\t\tSKIP_INSTALL = YES;
+            \t\t\t\tSUPPORTED_PLATFORMS = \"iphoneos iphonesimulator\";
+            \t\t\t\tSWIFT_EMIT_LOC_STRINGS = YES;
+            \t\t\t\tSWIFT_VERSION = 5.0;
+            \t\t\t\tTARGETED_DEVICE_FAMILY = \"1,2\";
+            \t\t\t};
+            \t\t\tname = Debug;
+            \t\t};
+            \t\tC8000022 /* Release */ = {
+            \t\t\tisa = XCBuildConfiguration;
+            \t\t\tbaseConfigurationReference = B2000005 /* Manifest.xcconfig */;
+            \t\t\tbuildSettings = {
+            \t\t\t\tCODE_SIGN_ENTITLEMENTS = \"\(name)Widgets/\(name)Widgets.entitlements\";
+            \t\t\t\tCODE_SIGN_STYLE = Automatic;
+            \t\t\t\tCURRENT_PROJECT_VERSION = 1;
+            \t\t\t\tGENERATE_INFOPLIST_FILE = YES;
+            \t\t\t\tINFOPLIST_FILE = \"\(name)Widgets/Info.plist\";
+            \t\t\t\tINFOPLIST_KEY_CFBundleDisplayName = \"\(name) Widgets\";
+            \t\t\t\tINFOPLIST_KEY_NSHumanReadableCopyright = \"\";
+            \t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = 17.0;
+            \t\t\t\tLD_RUNPATH_SEARCH_PATHS = (
+            \t\t\t\t\t\"$(inherited)\",
+            \t\t\t\t\t\"@executable_path/Frameworks\",
+            \t\t\t\t\t\"@executable_path/../../Frameworks\",
+            \t\t\t\t);
+            \t\t\t\tMARKETING_VERSION = 1.0;
+            \t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = \"$(MELODY_BUNDLE_ID).widgets\";
+            \t\t\t\tPRODUCT_NAME = \"$(TARGET_NAME)\";
+            \t\t\t\tSKIP_INSTALL = YES;
+            \t\t\t\tSUPPORTED_PLATFORMS = \"iphoneos iphonesimulator\";
+            \t\t\t\tSWIFT_EMIT_LOC_STRINGS = YES;
+            \t\t\t\tSWIFT_VERSION = 5.0;
+            \t\t\t\tTARGETED_DEVICE_FAMILY = \"1,2\";
+            \t\t\t};
+            \t\t\tname = Release;
+            \t\t};
+            """
+
+            widgetConfigList = """
+            \t\tC8000003 /* Build configuration list for PBXNativeTarget \"\(name)Widgets\" */ = {
+            \t\t\tisa = XCConfigurationList;
+            \t\t\tbuildConfigurations = (
+            \t\t\t\tC8000021 /* Debug */,
+            \t\t\t\tC8000022 /* Release */,
+            \t\t\t);
+            \t\t\tdefaultConfigurationIsVisible = 0;
+            \t\t\tdefaultConfigurationName = Release;
+            \t\t};
+            """
+        }
+
         return """
             // !$*UTF8*$!
             {
@@ -320,7 +781,7 @@ struct XcodeProjectGenerator {
             \t\tB1000007 /* components in Resources */ = {isa = PBXBuildFile; fileRef = B2000009 /* components */; };
             \t\tB1000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2000010 /* Assets.xcassets */; };
             \t\tB1000009 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = B2000011 /* assets */; };
-            /* End PBXBuildFile section */
+            \(widgetBuildFiles)\(widgetBuildFileEmbed)/* End PBXBuildFile section */
 
             /* Begin PBXFileReference section */
             \t\tB2000001 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = \"<group>\"; };
@@ -333,7 +794,7 @@ struct XcodeProjectGenerator {
             \t\tB2000009 /* components */ = {isa = PBXFileReference; lastKnownFileType = folder; path = components; sourceTree = \"<group>\"; };
             \t\tB2000010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = \"<group>\"; };
             \t\tB2000011 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = \"<group>\"; };
-            /* End PBXFileReference section */
+            \(widgetFileRefs)/* End PBXFileReference section */
 
             /* Begin PBXFrameworksBuildPhase section */
             \t\tB3000001 /* Frameworks */ = {
@@ -345,7 +806,7 @@ struct XcodeProjectGenerator {
             \t\t\t);
             \t\t\trunOnlyForDeploymentPostprocessing = 0;
             \t\t};
-            /* End PBXFrameworksBuildPhase section */
+            \(widgetFrameworksPhase)/* End PBXFrameworksBuildPhase section */
 
             /* Begin PBXGroup section */
             \t\tB5000001 = {
@@ -353,14 +814,14 @@ struct XcodeProjectGenerator {
             \t\t\tchildren = (
             \t\t\t\tB2000006 /* Info.plist */,
             \t\t\t\tB2000005 /* Manifest.xcconfig */,
-            \t\t\t\tB2000001 /* App.swift */,
+            \(mainGroupEntitlements)\t\t\t\tB2000001 /* App.swift */,
             \t\t\t\tB2000004 /* DevConfig.swift */,
             \t\t\t\tB2000007 /* app.yaml */,
             \t\t\t\tB2000008 /* screens */,
             \t\t\t\tB2000009 /* components */,
             \t\t\t\tB2000010 /* Assets.xcassets */,
             \t\t\t\tB2000011 /* assets */,
-            \t\t\t\tB5000002 /* Products */,
+            \(mainGroupWidgetDir)\t\t\t\tB5000002 /* Products */,
             \t\t\t);
             \t\t\tsourceTree = \"<group>\";
             \t\t};
@@ -368,11 +829,11 @@ struct XcodeProjectGenerator {
             \t\t\tisa = PBXGroup;
             \t\t\tchildren = (
             \t\t\t\tB2000002 /* \(name).app */,
-            \t\t\t);
+            \(productsWidgetAppex)\t\t\t);
             \t\t\tname = Products;
             \t\t\tsourceTree = \"<group>\";
             \t\t};
-            /* End PBXGroup section */
+            \(widgetGroup)/* End PBXGroup section */
 
             /* Begin PBXNativeTarget section */
             \t\tB6000001 /* \(name) */ = {
@@ -383,11 +844,11 @@ struct XcodeProjectGenerator {
             \t\t\t\tB3000001 /* Frameworks */,
             \t\t\t\tB3000002 /* Resources */,
             \t\t\t\tB3000003 /* Generate macOS Icon */,
-            \t\t\t);
+            \(mainAppBuildPhases)\t\t\t);
             \t\t\tbuildRules = (
             \t\t\t);
             \t\t\tdependencies = (
-            \t\t\t);
+            \(mainAppDeps)\t\t\t);
             \t\t\tname = \(name);
             \t\t\tpackageProductDependencies = (
             \t\t\t\tB4000001 /* Runtime */,
@@ -397,7 +858,7 @@ struct XcodeProjectGenerator {
             \t\t\tproductReference = B2000002 /* \(name).app */;
             \t\t\tproductType = \"com.apple.product-type.application\";
             \t\t};
-            /* End PBXNativeTarget section */
+            \(widgetNativeTarget)/* End PBXNativeTarget section */
 
             /* Begin PBXProject section */
             \t\tB9000001 /* Project object */ = {
@@ -407,9 +868,7 @@ struct XcodeProjectGenerator {
             \t\t\t\tLastSwiftUpdateCheck = 1540;
             \t\t\t\tLastUpgradeCheck = 1540;
             \t\t\t\tTargetAttributes = {
-            \t\t\t\t\tB6000001 = {
-            \t\t\t\t\t\tCreatedOnToolsVersion = 15.4;
-            \t\t\t\t\t};
+            \(targetAttributes)
             \t\t\t\t};
             \t\t\t};
             \t\t\tbuildConfigurationList = B8000001 /* Build configuration list for PBXProject \"\(name)\" */;
@@ -428,7 +887,7 @@ struct XcodeProjectGenerator {
             \t\t\tprojectDirPath = \"\";
             \t\t\tprojectRoot = \"\";
             \t\t\ttargets = (
-            \t\t\t\tB6000001 /* \(name) */,
+            \(targetsList)
             \t\t\t);
             \t\t};
             /* End PBXProject section */
@@ -446,7 +905,7 @@ struct XcodeProjectGenerator {
             \t\t\t);
             \t\t\trunOnlyForDeploymentPostprocessing = 0;
             \t\t};
-            /* End PBXResourcesBuildPhase section */
+            \(widgetResourcesPhase)/* End PBXResourcesBuildPhase section */
 
             /* Begin PBXShellScriptBuildPhase section */
             \t\tB3000003 /* Generate macOS Icon */ = {
@@ -465,7 +924,7 @@ struct XcodeProjectGenerator {
             \t\t\tshellPath = /bin/sh;
             \t\t\tshellScript = \"\(shellScript)\";
             \t\t};
-            /* End PBXShellScriptBuildPhase section */
+            \(widgetGenerateScriptPhase)/* End PBXShellScriptBuildPhase section */
 
             /* Begin PBXSourcesBuildPhase section */
             \t\tB7000001 /* Sources */ = {
@@ -477,8 +936,8 @@ struct XcodeProjectGenerator {
             \t\t\t);
             \t\t\trunOnlyForDeploymentPostprocessing = 0;
             \t\t};
-            /* End PBXSourcesBuildPhase section */
-
+            \(widgetSourcesPhase)/* End PBXSourcesBuildPhase section */
+            \(widgetSections)
             /* Begin XCBuildConfiguration section */
             \t\tB8000011 /* Debug */ = {
             \t\t\tisa = XCBuildConfiguration;
@@ -534,6 +993,7 @@ struct XcodeProjectGenerator {
             \t\t\tbuildSettings = {
             \t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
             \t\t\t\t\"CODE_SIGN_IDENTITY[sdk=macosx*]\" = \"-\";
+            \(mainEntitlementSetting)
             \t\t\t\tCODE_SIGN_STYLE = Automatic;
             \t\t\t\tCURRENT_PROJECT_VERSION = 1;
             \t\t\t\tENABLE_APP_SANDBOX = YES;
@@ -577,6 +1037,7 @@ struct XcodeProjectGenerator {
             \t\t\tbaseConfigurationReference = B2000005 /* Manifest.xcconfig */;
             \t\t\tbuildSettings = {
             \t\t\t\tASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+            \(mainEntitlementSetting)
             \t\t\t\tCODE_SIGN_STYLE = Automatic;
             \t\t\t\tCURRENT_PROJECT_VERSION = 1;
             \t\t\t\tENABLE_APP_SANDBOX = YES;
@@ -615,7 +1076,7 @@ struct XcodeProjectGenerator {
             \t\t\t};
             \t\t\tname = Release;
             \t\t};
-            /* End XCBuildConfiguration section */
+            \(widgetBuildConfigs)/* End XCBuildConfiguration section */
 
             /* Begin XCConfigurationList section */
             \t\tB8000001 /* Build configuration list for PBXProject \"\(name)\" */ = {
@@ -636,7 +1097,7 @@ struct XcodeProjectGenerator {
             \t\t\tdefaultConfigurationIsVisible = 0;
             \t\t\tdefaultConfigurationName = Release;
             \t\t};
-            /* End XCConfigurationList section */
+            \(widgetConfigList)/* End XCConfigurationList section */
 
             /* Begin XCRemoteSwiftPackageReference section */
             \t\tB4100001 /* XCRemoteSwiftPackageReference "melody" */ = {
@@ -660,7 +1121,7 @@ struct XcodeProjectGenerator {
             \t\t\tpackage = B4100001 /* XCRemoteSwiftPackageReference "melody" */;
             \t\t\tproductName = Core;
             \t\t};
-            /* End XCSwiftPackageProductDependency section */
+            \(widgetPackageDeps)/* End XCSwiftPackageProductDependency section */
             \t};
             \trootObject = B9000001 /* Project object */;
             }
