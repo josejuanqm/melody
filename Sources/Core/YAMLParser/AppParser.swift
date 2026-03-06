@@ -61,6 +61,14 @@ public struct AppParser {
             }
         }
 
+        let widgetFiles = Self.findWidgetFiles(in: dirPath)
+        for filePath in widgetFiles {
+            let yaml = try String(contentsOfFile: filePath, encoding: .utf8)
+            let widget = try decoder.decode(WidgetDefinition.self, from: yaml)
+            if app.widgets == nil { app.widgets = [:] }
+            app.widgets?[widget.id] = widget
+        }
+
         return app
     }
 
@@ -111,6 +119,23 @@ public struct AppParser {
             }
         }
 
+        let widgetFiles = Self.findWidgetFiles(in: dirPath)
+        if !widgetFiles.isEmpty {
+            if !appYaml.contains("\nwidgets:") && !appYaml.contains("\nwidgets :") {
+                appYaml += "\nwidgets:\n"
+            }
+
+            for filePath in widgetFiles {
+                let widgetYaml = try String(contentsOfFile: filePath, encoding: .utf8)
+                let decoder = YAMLDecoder()
+                let widget = try decoder.decode(WidgetDefinition.self, from: widgetYaml)
+                let indentedBody = widgetYaml.components(separatedBy: "\n")
+                    .map { $0.isEmpty ? "" : "    \($0)" }
+                    .joined(separator: "\n")
+                appYaml += "  \(widget.id):\n\(indentedBody)\n"
+            }
+        }
+
         return appYaml
     }
 
@@ -138,6 +163,25 @@ public struct AppParser {
             if isInsideIgnoredDirectory(relative) { continue }
             guard relative.hasSuffix(".yaml") || relative.hasSuffix(".yml") else { continue }
             guard !relative.hasSuffix(".component.yaml") else { continue }
+            guard !relative.hasSuffix(".widget.yaml") else { continue }
+
+            results.append((dirPath as NSString).appendingPathComponent(relative))
+        }
+        return results.sorted()
+    }
+
+    /// Recursively finds all *.widget.yaml files in `dirPath`.
+    /// Returns sorted absolute paths.
+    public static func findWidgetFiles(in dirPath: String) -> [String] {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(atPath: dirPath) else { return [] }
+
+        var results: [String] = []
+        while let relative = enumerator.nextObject() as? String {
+            let filename = (relative as NSString).lastPathComponent
+            if filename.hasPrefix(".") { continue }
+            if isInsideIgnoredDirectory(relative) { continue }
+            guard relative.hasSuffix(".widget.yaml") else { continue }
 
             results.append((dirPath as NSString).appendingPathComponent(relative))
         }

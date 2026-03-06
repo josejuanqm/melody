@@ -310,19 +310,8 @@ fun ScreenView(
 
                 val isLoading = screenState.get("loading") == LuaValue.BoolVal(true)
                 val hasRefresh = definition.onRefresh != null
-                val refreshState = rememberPullToRefreshState()
-                val onRefresh: (() -> Unit)? = when {
-                    definition.onRefresh != null -> {
-                        { luaVM?.executeAsync(definition.onRefresh ?: "") { } }
-                    }
-                    else -> null
-                }
 
-                PullToRefreshBox(
-                    isRefreshing = isLoading,
-                    onRefresh = onRefresh ?: {},
-                    state = refreshState
-                ) {
+                val content: @Composable () -> Unit = {
                     Column(modifier = sizeModifier) {
                         definition.search?.let { searchConfig ->
                             MelodySearchBar(
@@ -378,6 +367,19 @@ fun ScreenView(
                             }
                         }
                     }
+                }
+
+                if (hasRefresh) {
+                    val refreshState = rememberPullToRefreshState()
+                    PullToRefreshBox(
+                        isRefreshing = isLoading,
+                        onRefresh = { luaVM?.executeAsync(definition.onRefresh ?: "") { } },
+                        state = refreshState
+                    ) {
+                        content()
+                    }
+                } else {
+                    content()
                 }
             }
         }
@@ -474,8 +476,8 @@ internal fun registerMelodyFunctions(
         LuaValue.Nil
     }
 
-    vm.registerMelodyFunction("storeGet") { args ->
-        args.firstOrNull()?.stringValue?.let { store.get(it) } ?: LuaValue.Nil
+    vm.registerMelodyFunctionJson("storeGet") { args ->
+        args.firstOrNull()?.stringValue?.let { store.getAsJson(it) }
     }
 
     vm.registerMelodyFunction("trustHost") { args ->
@@ -613,6 +615,11 @@ private fun MelodySearchBar(
     luaVM: LuaVM?
 ) {
     var searchText by remember { mutableStateOf("") }
+
+    // Clear stale query when search bar (re)appears after tab switch
+    LaunchedEffect(Unit) {
+        screenState.set(config.stateKey, LuaValue.StringVal(""))
+    }
 
     DockedSearchBar(
         inputField = {

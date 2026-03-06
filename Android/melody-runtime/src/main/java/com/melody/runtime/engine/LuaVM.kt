@@ -177,6 +177,22 @@ class LuaVM {
     }
 
     /**
+     * Register a Kotlin function that returns a raw JSON string to push directly to Lua.
+     * Bypasses the LuaValue → toAny → toJson roundtrip for better fidelity
+     * (e.g., preserves JSON arrays as Lua tables with integer keys for ipairs).
+     * Return null to push nil.
+     */
+    fun registerMelodyFunctionJson(name: String, function: (List<LuaValue>) -> String?) {
+        val id = LuaBridge.registerKotlinFunction(L, "melody", name) { luaState, rawArgs ->
+            val args = rawArgs.map { LuaValue.fromAny(it) }
+            val json = function(args)
+            LuaBridge.pushValue(luaState, json ?: "null")
+            1
+        }
+        registeredCallbackIds.add(id)
+    }
+
+    /**
      * Register a Kotlin function under a plugin namespace (e.g., `keychain.get`).
      * Creates the namespace table as a global if it doesn't exist yet.
      */

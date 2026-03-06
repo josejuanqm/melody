@@ -13,6 +13,7 @@ struct MelodyCLI: ParsableCommand {
             BuildCommand.self,
             DevCommand.self,
             PluginsCommand.self,
+            GenerateWidgetsCommand.self,
         ]
     )
 }

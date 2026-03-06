@@ -19,8 +19,9 @@ public struct MelodyAppView: View {
     @State private var devSettings = DevSettings()
     #endif
 
-    public init(appDefinition: AppDefinition, plugins: [MelodyPlugin] = [], assetBaseURL: String? = nil) {
+    public init(appDefinition: AppDefinition, plugins: [MelodyPlugin] = [], assetBaseURL: String? = nil, store: MelodyStore = MelodyStore()) {
         self._currentApp = State(initialValue: appDefinition)
+        self._store = State(initialValue: store)
         self.pluginRegistry = MelodyPluginRegistry(plugins: plugins)
         self.assetBaseURL = assetBaseURL
         navigator.registerScreens(currentApp.screens)

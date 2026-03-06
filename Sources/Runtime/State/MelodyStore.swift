@@ -1,5 +1,8 @@
 import Foundation
 import SwiftUI
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 // MARK: - Environment Key
 
@@ -20,10 +23,15 @@ extension EnvironmentValues {
 /// - `get` checks memory first, then disk
 public final class MelodyStore: @unchecked Sendable {
     private var cache: [String: LuaValue] = [:]
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
     private let prefix: String
 
-    public init() {
+    public init(suiteName: String? = nil) {
+        if let suiteName {
+            self.defaults = UserDefaults(suiteName: suiteName) ?? .standard
+        } else {
+            self.defaults = .standard
+        }
         prefix = "melody.store.\(Bundle.main.bundleIdentifier ?? "")-"
     }
 
@@ -39,6 +47,9 @@ public final class MelodyStore: @unchecked Sendable {
         if let data = try? JSONSerialization.data(withJSONObject: wrapped) {
             defaults.set(data, forKey: prefix + key)
         }
+        #if canImport(WidgetKit)
+        WidgetKit.WidgetCenter.shared.reloadAllTimelines()
+        #endif
     }
 
     /// Reads from memory first, falls back to UserDefaults
@@ -54,6 +65,13 @@ public final class MelodyStore: @unchecked Sendable {
             return value
         }
         return .nil
+    }
+
+    /// Saves theme colors to shared UserDefaults for widget access
+    public func saveThemeColors(_ colors: [String: String]) {
+        if let data = try? JSONSerialization.data(withJSONObject: colors) {
+            defaults.set(data, forKey: "melody.theme.colors")
+        }
     }
 
 }

@@ -12,11 +12,13 @@ public struct AppDefinition: Codable, Sendable {
     public var app: AppConfig
     public var screens: [ScreenDefinition] = []
     public var components: [String: CustomComponentDefinition]?
+    public var widgets: [String: WidgetDefinition]?
 
-    public init(app: AppConfig, screens: [ScreenDefinition] = [], components: [String: CustomComponentDefinition]? = nil) {
+    public init(app: AppConfig, screens: [ScreenDefinition] = [], components: [String: CustomComponentDefinition]? = nil, widgets: [String: WidgetDefinition]? = nil) {
         self.app = app
         self.screens = screens
         self.components = components
+        self.widgets = widgets
     }
 
     public init(from decoder: any Decoder) throws {
@@ -24,5 +26,6 @@ public struct AppDefinition: Codable, Sendable {
         self.app = try container.decode(AppConfig.self, forKey: .app)
         self.screens = try container.decodeIfPresent([ScreenDefinition].self, forKey: .screens) ?? []
         self.components = try container.decodeIfPresent([String : CustomComponentDefinition].self, forKey: .components)
+        self.widgets = try container.decodeIfPresent([String : WidgetDefinition].self, forKey: .widgets)
     }
 }
