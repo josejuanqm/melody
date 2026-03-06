@@ -171,6 +171,24 @@ private fun isToolbarItemVisible(item: ComponentDefinition, vm: LuaVM): Boolean 
 @Composable
 private fun ToolbarButton(item: ComponentDefinition, luaVM: LuaVM) {
     val icon = resolveToolbarString(item.systemImage, luaVM)
+    if (icon == null) {
+        Button(onClick = {
+            item.onTap?.let { script ->
+                luaVM.executeAsync(script) { result ->
+                    result.onFailure { e ->
+                        Log.e("Melody", "Toolbar action error: ${e.message}")
+                    }
+                }
+            }
+        }) {
+            Text(
+                resolveToolbarString(item.label, luaVM)
+                    ?: resolveToolbarString(item.text, luaVM)
+                    ?: ""
+            )
+        }
+        return
+    }
     IconButton(onClick = {
         item.onTap?.let { script ->
             luaVM.executeAsync(script) { result ->

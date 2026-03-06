@@ -35,6 +35,11 @@ dependencies {
 
     implementation(libs.core.ktx)
     implementation(libs.serialization.json)
+    implementation(libs.kaml)
+
+    // Glance
+    api(libs.glance.appwidget)
+    api(libs.glance.material3)
 
     // Compose
     implementation(platform(libs.compose.bom))

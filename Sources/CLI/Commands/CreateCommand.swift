@@ -279,6 +279,12 @@ struct CreateCommand: ParsableCommand {
             withIntermediateDirectories: true
         )
 
+        let widgetsDir = (projectDir as NSString).appendingPathComponent("widgets")
+        try FileManager.default.createDirectory(
+            atPath: widgetsDir,
+            withIntermediateDirectories: true
+        )
+
         let melodyVersion = MelodyCLI.configuration.version
         try XcodeProjectGenerator.generate(
             name: name,
@@ -298,6 +304,7 @@ struct CreateCommand: ParsableCommand {
         print("  → app.yaml")
         print("  → components/")
         print("  → screens/")
+        print("  → widgets/")
         print("  → assets/")
         print("  → \(name).xcodeproj/")
         print("  → App.swift")

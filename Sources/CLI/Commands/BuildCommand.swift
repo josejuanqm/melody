@@ -42,8 +42,20 @@ struct BuildCommand: ParsableCommand {
         let destAssetsDir = (outputPath as NSString).appendingPathComponent("assets")
         try FileManager.default.replaceItem(at: destAssetsDir, with: assetsDir)
 
+        let widgetFiles = AppParser.findWidgetFiles(in: sourceDir)
+        if !widgetFiles.isEmpty {
+            let destWidgetsDir = (outputPath as NSString).appendingPathComponent("widgets")
+            try FileManager.default.createDirectory(atPath: destWidgetsDir, withIntermediateDirectories: true)
+            for filePath in widgetFiles {
+                let filename = (filePath as NSString).lastPathComponent
+                let dest = (destWidgetsDir as NSString).appendingPathComponent(filename)
+                try FileManager.default.replaceItem(at: dest, with: filePath)
+            }
+        }
+
+        let widgetCount = app.widgets?.count ?? 0
         print("✓ Built '\(app.app.name)' → \(outputPath)")
-        print("  \(app.screens.count) screen(s) bundled")
+        print("  \(app.screens.count) screen(s), \(widgetCount) widget(s) bundled")
     }
 
     private func resolvePath(_ path: String) -> String {

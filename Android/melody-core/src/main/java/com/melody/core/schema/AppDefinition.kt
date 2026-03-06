@@ -1,5 +1,6 @@
 package com.melody.core.schema
 
+import WidgetDefinition
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -13,7 +14,8 @@ data class CustomComponentDefinition(
 data class AppDefinition(
     val app: AppConfig,
     val screens: MutableList<ScreenDefinition> = mutableListOf(),
-    var components: MutableMap<String, CustomComponentDefinition>? = null
+    var components: MutableMap<String, CustomComponentDefinition>? = null,
+    var widgets: MutableMap<String, WidgetDefinition>? = null
 )
 
 @Serializable

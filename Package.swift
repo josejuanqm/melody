@@ -14,6 +14,7 @@ let package = Package(
     products: [
         .library(name: "Core", targets: ["Core"]),
         .library(name: "Runtime", targets: ["Runtime"]),
+        .library(name: "Widgets", targets: ["Widgets"]),
         .executable(name: "melody", targets: ["MelodyCLI"]),
     ],
     dependencies: [
@@ -48,6 +49,12 @@ let package = Package(
             swiftSettings: [
                 .define("MELODY_DEV", .when(configuration: .debug)),
             ]
+        ),
+
+        .target(
+            name: "Widgets",
+            dependencies: ["Core", "CLua", "Yams"],
+            path: "Sources/Widgets"
         ),
 
         // CLI executable
