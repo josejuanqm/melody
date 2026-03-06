@@ -600,7 +600,7 @@ struct XcodeProjectGenerator {
         var widgetBuildFileEmbed = ""
 
         if hasWidgets {
-            widgetBuildFileEmbed = "\t\tC1000010 /* \(name)Widgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C2000002 /* \(name)Widgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };\n"
+            widgetBuildFileEmbed = "\t\tC1000010 /* \(name)Widgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C2000002 /* \(name)Widgets.appex */; platformFilters = (ios, xros, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };\n"
 
             widgetFrameworksPhase = """
             \t\tC3000002 /* Frameworks */ = {
@@ -712,10 +712,11 @@ struct XcodeProjectGenerator {
             \t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = \"$(MELODY_BUNDLE_ID).widgets\";
             \t\t\t\tPRODUCT_NAME = \"$(TARGET_NAME)\";
             \t\t\t\tSKIP_INSTALL = YES;
-            \t\t\t\tSUPPORTED_PLATFORMS = \"iphoneos iphonesimulator\";
+            \t\t\t\tSUPPORTED_PLATFORMS = \"iphoneos iphonesimulator xros xrsimulator\";
+            \t\t\t\tSUPPORTS_MACCATALYST = NO;
             \t\t\t\tSWIFT_EMIT_LOC_STRINGS = YES;
             \t\t\t\tSWIFT_VERSION = 5.0;
-            \t\t\t\tTARGETED_DEVICE_FAMILY = \"1,2\";
+            \t\t\t\tTARGETED_DEVICE_FAMILY = \"1,2,7\";
             \t\t\t};
             \t\t\tname = Debug;
             \t\t};
@@ -740,10 +741,11 @@ struct XcodeProjectGenerator {
             \t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = \"$(MELODY_BUNDLE_ID).widgets\";
             \t\t\t\tPRODUCT_NAME = \"$(TARGET_NAME)\";
             \t\t\t\tSKIP_INSTALL = YES;
-            \t\t\t\tSUPPORTED_PLATFORMS = \"iphoneos iphonesimulator\";
+            \t\t\t\tSUPPORTED_PLATFORMS = \"iphoneos iphonesimulator xros xrsimulator\";
+            \t\t\t\tSUPPORTS_MACCATALYST = NO;
             \t\t\t\tSWIFT_EMIT_LOC_STRINGS = YES;
             \t\t\t\tSWIFT_VERSION = 5.0;
-            \t\t\t\tTARGETED_DEVICE_FAMILY = \"1,2\";
+            \t\t\t\tTARGETED_DEVICE_FAMILY = \"1,2,7\";
             \t\t\t};
             \t\t\tname = Release;
             \t\t};

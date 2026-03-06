@@ -13,6 +13,7 @@ func melodyToolbarComponent(_ item: ComponentDefinition, vm: LuaVM) -> some View
 
 @ViewBuilder
 private func melodyToolbarComponentContent(_ item: ComponentDefinition, vm: LuaVM) -> some View {
+    let resolver = ExpressionResolver(vm: vm, props: nil, state: nil)
     let resolved = resolveToolbarString(item.systemImage, vm: vm)
     switch ComponentType(item.component) {
     case .menu:
@@ -27,15 +28,19 @@ private func melodyToolbarComponentContent(_ item: ComponentDefinition, vm: LuaV
                 let label = resolveToolbarString(item.label, vm: vm) ?? ""
                 if label.isEmpty {
                     Image(systemName: systemImage)
+                        .foregroundStyle(Color(hex: resolver.string(item.style?.color ?? .expression("theme.textPrimary"))))
                 } else {
                     Label(label, systemImage: systemImage)
+                        .foregroundStyle(Color(hex: resolver.string(item.style?.color ?? .expression("theme.textPrimary"))))
                 }
             } else {
                 Text(resolveToolbarString(item.label, vm: vm)
                      ?? resolveToolbarString(item.text, vm: vm)
                      ?? "")
+                .foregroundStyle(Color(hex: resolver.string(item.style?.color ?? .expression("theme.textPrimary"))))
             }
         }
+        .foregroundStyle(Color(hex: resolver.string(item.style?.color ?? .expression("theme.textPrimary"))))
     default:
         Button {
             if let script = item.onTap {
@@ -48,10 +53,12 @@ private func melodyToolbarComponentContent(_ item: ComponentDefinition, vm: LuaV
         } label: {
             if let systemImage = resolved {
                 Image(systemName: systemImage)
+                    .foregroundStyle(Color(hex: resolver.string(item.style?.color ?? .expression("theme.textPrimary"))))
             } else {
                 Text(resolveToolbarString(item.label, vm: vm)
                      ?? resolveToolbarString(item.text, vm: vm)
                      ?? "")
+                .foregroundStyle(Color(hex: resolver.string(item.style?.color ?? .expression("theme.textPrimary"))))
             }
         }
     }
@@ -62,6 +69,7 @@ func melodyToolbarMenuChild(_ child: ComponentDefinition, vm: LuaVM) -> some Vie
     let resolver = ExpressionResolver(vm: vm, props: nil, state: nil)
     if resolver.visible(child.visible) {
         melodyToolbarMenuChildContent(child, vm: vm)
+            .foregroundStyle(Color(hex: resolver.string(child.style?.color ?? .expression("theme.textPrimary"))))
     }
 }
 
